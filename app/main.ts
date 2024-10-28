@@ -94,6 +94,34 @@ class BitTorrentClient extends EventEmitter {
   }
 }
 
+async function displayTorrentInfo(torrentFilePath: string) {
+  try {
+    const content = fs.readFileSync(torrentFilePath);
+    const decoded = decodeBencode(content.toString('binary'));
+
+    const trackerUrl = decoded.announce;
+    const length = decoded.info.length;
+    const infoHash = crypto.createHash('sha1').update(encodeBencode(decoded.info)).digest("hex");
+    const pieceLength = decoded.info['piece length'];
+    const pieces = decoded.info.pieces;
+
+    // Convert pieces hash into hexadecimal format
+    const pieceHashes = [];
+    for (let i = 0; i < pieces.length; i += 20) {
+      pieceHashes.push(Buffer.from(pieces.slice(i, i + 20), 'binary').toString('hex'));
+    }
+
+    console.log(`Tracker URL: ${trackerUrl}`);
+    console.log(`Length: ${length}`);
+    console.log(`Info Hash: ${infoHash}`);
+    console.log(`Piece Length: ${pieceLength}`);
+    console.log("Piece Hashes:");
+    pieceHashes.forEach(hash => console.log(hash));
+  } catch (error:any) {
+    console.error("Error reading torrent file:", error.message);
+  }
+}
+
 // Function to decode peer addresses from a compact binary format
 function getPeers(v: string): string[] {
   const result: string[] = [];
@@ -157,7 +185,6 @@ function decodeBencode(bencodedValue: string): any {
   return decoded;
 }
 
-// Main logic
 const args = process.argv;
 
 if (args[2] === "download") {
@@ -170,7 +197,9 @@ if (args[2] === "download") {
     process.exit(1);
   }
 
-  // Create an instance of BitTorrentClient and start downloading the piece
   const client = new BitTorrentClient(new net.Socket());
   client.downloadPiece(outputPath, torrentFilePath, pieceIndex);
+} else if (args[2] === "info") {
+  const torrentFilePath = args[3];
+  displayTorrentInfo(torrentFilePath);
 }
